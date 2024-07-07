@@ -23,10 +23,6 @@ from keras.regularizers import l2
 #Quantum qpeg library
 import torch
 
-
-
-
-
 #initialising path to images
 path = 'images/'
 
@@ -34,14 +30,8 @@ path = 'images/'
 print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
-#ask if images are moved to respective classes
-done = input("are images moved yet?")
-
-
 #enable options to overwrite dataframe
 pd.options.mode.copy_on_write = True
-
-
 
 
 #isolating the useful information from the csv files and shuffling the output.
@@ -93,18 +83,9 @@ def Dataset():
         df4.to_csv('Database_Galaxies.csv')#contains dataframe of imagery, binary classification and vote fractions for baseline 
             
         return 0
-
     
-#full dataset not used right now + data seperation also not used rn
-#Dataset()
 
-#df4 = pd.read_csv("database.csv") #changed to smallbase for now
-#df4 = pd.read_csv("smallbase.csv")
-#df5 = pd.read_csv("Database_Galaxies.csv")
-#dfsmall = df5.drop_duplicates(keep='first')
-
-
-
+#function to calculate baseline accuracies from the thesis
 def Baseline_accuracy():
     df5 = pd.read_csv("Database_Galaxies.csv")
     dfnew = df5.drop_duplicates(keep='first')
@@ -159,50 +140,49 @@ def Baseline_accuracy():
 
     return 0
 
-#Baseline_accuracy()
 
-def binary_directory(): #CHANGE SMALLIMAGES WITH TEMP WHEN DONE
+def binary_directory(): 
     df5 = pd.read_csv("Database_Galaxies.csv")
+    
     dfsmall = df5.drop_duplicates(keep='first')
 
     dfsmall['main_type'] = dfsmall['gz2_class'].astype(str).str[0]
-
     Galaxy_classes = dfsmall['main_type'].unique()
-    if not done == 'ja':
-    #moves all imagery into their classes directory wise
-    #this is easier for image classification.
-        for cat in Galaxy_classes:
-            x = dfsmall.loc[dfsmall['main_type'] == cat]
-            pathcreatdir = (f'truncimages/{cat}')
+    print(Galaxy_classes)
 
+    for cat in Galaxy_classes:
+        
+        
+        i=0
+        x = dfsmall.loc[dfsmall['main_type'] == cat]
+        while i < len(x):
+            
+            image_number = x.iloc[i]['asset_id']
+            
+            image = cv2.imread((f'images/{image_number}.jpg'))
+            gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY) 
+            u, s, v = np.linalg.svd(gray_image, full_matrices=False)
+
+            #save normal gray image
+            pathcreategray = (f'Full_Image_Gray/{cat}')
             #check if this has already been done before to reduce time complexity
-            doesexist = os.path.exists(pathcreatdir)
+            doesexist = os.path.exists(pathcreategray)
             if not doesexist:
-                os.makedirs(pathcreatdir)
+                os.makedirs(pathcreategray)
+            cv2.imwrite(f'Full_Image_Gray/{cat}/{image_number}.jpg', gray_image)
 
-            #for every image per class move it to their respective directory 
-            #also after checking if this was already done before
-            i=0
-            while i < len(x):
-                image_number = x.iloc[i]['asset_id']
-                image_exist = os.path.exists(f'truncimages/{cat}/{image_number}.jpg')
-                if not image_exist:
-                    shutil.copy(f'{path}{image_number}.jpg',f'truncimages/{cat}')
-                    #Convert L for grayscale mode, .resize((4, 4)) for resize to 4x4
-                    #img_rgb = Image.open(f'smallimages/{cat}/{image_number}.jpg').convert('L').resize((4, 4))
-                    #img_rgb.save(f'smallimages/{cat}/{image_number}.jpg')
-                i=i+1
+
+            #print(i/len(x))
+            i=i+1
 
     return 0
 
-
-#binary_directory()
-
 def calc_mean():
     df5 = pd.read_csv("Database_Galaxies.csv")
+    
     dfsmall = df5.drop_duplicates(keep='first')
-
-    dfnew = dfsmall.loc[dfsmall['main_type'] != 'A']
+    
+    dfnew = dfsmall 
 
     Galaxy_classes = dfnew['main_type'].unique()
     print(Galaxy_classes)
@@ -212,7 +192,7 @@ def calc_mean():
     while i < len(dfnew):
         image_number = dfnew.iloc[i]['asset_id']
         EORS = dfnew.iloc[i]['main_type']
-        vol = cv2.imread(f'tempimages/{EORS}/{image_number}.jpg')
+        vol = cv2.imread(f'Full_Image_Gray/{EORS}/{image_number}.jpg')
         mean_all = ndimage.mean(vol, labels=None, index=None)
         dfnew.iloc[i, dfnew.columns.get_loc('mean_intensity')] = mean_all
 
@@ -230,12 +210,12 @@ def calc_mean():
     plt.ylabel('Density')
     plt.show()
 
-
 def calc_variance():
     df5 = pd.read_csv("Database_Galaxies.csv")
+    
     dfsmall = df5.drop_duplicates(keep='first')
-
-    dfnew = dfsmall.loc[dfsmall['main_type'] != 'A']
+    
+    dfnew = dfsmall 
 
     Galaxy_classes = dfnew['main_type'].unique()
     print(Galaxy_classes)
@@ -245,7 +225,7 @@ def calc_variance():
     while i < len(dfnew):
         image_number = dfnew.iloc[i]['asset_id']
         EORS = dfnew.iloc[i]['main_type']
-        vol = cv2.imread(f'tempimages/{EORS}/{image_number}.jpg')
+        vol = cv2.imread(f'Full_Image_Gray/{EORS}/{image_number}.jpg')
         variance_all = ndimage.variance(vol, labels=None, index=None)
         dfnew.iloc[i, dfnew.columns.get_loc('mean_variance')] = variance_all
 
@@ -262,10 +242,6 @@ def calc_variance():
     plt.xlabel('mean variance image')
     plt.ylabel('Density')
     plt.show()
-
-
-
-#calc_mean()
 
 #put images back into original order for other classification method that needs other classes
 def undo_directory_images():
@@ -295,7 +271,6 @@ def undo_directory_images():
         
         os.rmdir(f'tempimages/{cat}')
     return 0
-
 
 def Classic_CNN_model(correct_dir):
     df5 = pd.read_csv("Database_Galaxies.csv")
@@ -407,11 +382,9 @@ def Classic_CNN_model(correct_dir):
      #                                   target_names=class_names))
     return 0
 
-
-#Classic_CNN_model()
-
 def SVD_Truncation():
     df5 = pd.read_csv("Database_Galaxies.csv")
+    #df5 = pd.read_csv("smallbase.csv")
     dfsmall = df5.drop_duplicates(keep='first')
 
     dfsmall['main_type'] = dfsmall['gz2_class'].astype(str).str[0]
@@ -421,59 +394,52 @@ def SVD_Truncation():
     var_total = 0
     comps = [5, 10, 15, 20]
 
-    if not done == 'ja':
     
-        for cat in Galaxy_classes:
+    
+    for cat in Galaxy_classes:
+        
+    
+        i=0
+        x = dfsmall.loc[dfsmall['main_type'] == cat]
+        while i < len(x):
             
-            if cat == 'E':
-                i=0
-                x = dfsmall.loc[dfsmall['main_type'] == cat]
-                while i < len(x):
-                    
-                    image_number = x.iloc[i]['asset_id']
-                    
-                    image = cv2.imread((f'images/{image_number}.jpg'))
-                    gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY) 
-                    u, s, v = np.linalg.svd(gray_image, full_matrices=False)
+            image_number = x.iloc[i]['asset_id']
+            
+            image = cv2.imread((f'images/{image_number}.jpg'))
+            gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY) 
+            u, s, v = np.linalg.svd(gray_image, full_matrices=False)
 
-                    #save normal gray image
-                    pathcreategray = (f'Full_Image_Gray/{cat}')
-                    #check if this has already been done before to reduce time complexity
-                    doesexist = os.path.exists(pathcreategray)
-                    if not doesexist:
-                        os.makedirs(pathcreategray)
-                    cv2.imwrite(f'Full_Image_Gray/{cat}/{image_number}.jpg', gray_image)
 
-                    #convert images to certain ranks.
-                    #5 10 15 20
+            #convert images to certain ranks.
+            #5 10 15 20
 
-                    for j in range(len(comps)): 
-                        low_rank = u[:, :comps[j]] @ np.diag(s[:comps[j]]) @ v[:comps[j], :] 
+            for j in range(len(comps)): 
+                low_rank = u[:, :comps[j]] @ np.diag(s[:comps[j]]) @ v[:comps[j], :] 
 
-                        pathcreatdir = (f'SVD{comps[j]}/{cat}')
+                pathcreatdir = (f'SVD{comps[j]}/{cat}')
 
-                        #check if this has already been done before to reduce time complexity
-                        doesexist = os.path.exists(pathcreatdir)
-                        if not doesexist:
-                            os.makedirs(pathcreatdir)
+                #check if this has already been done before to reduce time complexity
+                doesexist = os.path.exists(pathcreatdir)
+                if not doesexist:
+                    os.makedirs(pathcreatdir)
 
-                        cv2.imwrite(f'SVD{comps[j]}/{cat}/{image_number}.jpg', low_rank)
-                    
-
-                    
-                    print(i/len(x))
-                    i=i+1
+                cv2.imwrite(f'SVD{comps[j]}/{cat}/{image_number}.jpg', low_rank)
+            
 
             
-                    
-            #BELOW IS VARIANCE EXPLAINED, IMAGES ARE FOUND IN FOLDER AND THUS FOR NOW EVERYTHING
-            #IS COMMENTED TO REDUCE CALC TIME
-                    
-
-            #var_explained = np.round(s**2/np.sum(s**2), decimals=6)                
-
-            #var_total += var_explained                                             
             #print(i/len(x))
+            i=i+1
+
+        
+                
+        #BELOW IS VARIANCE EXPLAINED, IMAGES ARE FOUND IN FOLDER AND THUS FOR NOW EVERYTHING
+        #IS COMMENTED TO REDUCE CALC TIME
+                
+
+        #var_explained = np.round(s**2/np.sum(s**2), decimals=6)                
+
+        #var_total += var_explained                                             
+        #print(i/len(x))
             
 
     #var_average = var_total / len(dfsmall)                                         
@@ -505,6 +471,8 @@ def SVD_Truncation():
 
 def QPEGCOMPRESSION():
     df5 = pd.read_csv("Database_Galaxies.csv")
+    
+
     dfsmall = df5.drop_duplicates(keep='first')
 
     #functions for converting images to tensors and back
@@ -517,74 +485,52 @@ def QPEGCOMPRESSION():
     print(Galaxy_classes)
     comps = [5, 10, 15, 20] 
 
-    if not done == 'ja':
     
-        for cat in Galaxy_classes:
+    
+    for cat in Galaxy_classes:
+        
+    
+        i=0
+        x = dfnew.loc[dfnew['main_type'] == cat]
+        while i < len(x):
             
-            if cat == 'S':
-                i=0
-                x = dfnew.loc[dfnew['main_type'] == cat]
-                while i < len(x):
-                    
-                    image_number = x.iloc[i]['asset_id']
-                    image = cv2.imread((f'images/{image_number}.jpg'))
+            image_number = x.iloc[i]['asset_id']
+            image = cv2.imread((f'images/{image_number}.jpg'))
 
-                    #turn image gray
-                    gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY) 
+            #turn image gray
+            gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY) 
 
-                    #store image in a tensor node
-                    node = convert_tensor(gray_image)
+            #store image in a tensor node
+            node = convert_tensor(gray_image)
 
-                    #remove unwanted extra dimensionality that occurs when transforming the image to a tensor.
-                    Tnode = node.reshape(-1, node.shape[-1])
+            #remove unwanted extra dimensionality that occurs when transforming the image to a tensor.
+            Tnode = node.reshape(-1, node.shape[-1])
 
-                    #decompose tensor with pytorch SVD function
-                    U, S, VT = torch.linalg.svd(Tnode)
+            #decompose tensor with pytorch SVD function
+            U, S, VT = torch.linalg.svd(Tnode)
 
-                    #convert images to certain ranks.
-                    #5 10 15 20
+            #convert images to certain ranks.
+            #5 10 15 20
 
-                    for j in range(len(comps)): 
-                        low_rank = U[:, :comps[j]] @ np.diag(S[:comps[j]]) @ VT[:comps[j], :] 
-                        TensorRank = transform(low_rank)
-                        TensorImage = np.array(TensorRank)
-                        pathcreatdir = (f'Tensor{comps[j]}/{cat}')
-                        
-                        #check if this has already been done before to reduce time complexity
-                        doesexist = os.path.exists(pathcreatdir)
-                        if not doesexist:
-                            os.makedirs(pathcreatdir)
-                        
-                        cv2.imwrite(f'Tensor{comps[j]}/{cat}/{image_number}.jpg', TensorImage)
-                    
+            for j in range(len(comps)): 
+                low_rank = U[:, :comps[j]] @ np.diag(S[:comps[j]]) @ VT[:comps[j], :] 
+                TensorRank = transform(low_rank)
+                TensorImage = np.array(TensorRank)
+                pathcreatdir = (f'Tensor{comps[j]}/{cat}')
+                
+                #check if this has already been done before to reduce time complexity
+                doesexist = os.path.exists(pathcreatdir)
+                if not doesexist:
+                    os.makedirs(pathcreatdir)
+                
+                cv2.imwrite(f'Tensor{comps[j]}/{cat}/{image_number}.jpg', TensorImage)
+            
 
-                    
-                    print(i/len(x))
-                    i=i+1
+            
+            #print(i/len(x))
+            i=i+1
 
     return 0
-
-
-#SVD_Truncation()
-
-#perform model on origninal grayscaled database
-#Classic_CNN_model('Full_Image_Gray')
-
-
-#call normal SVD compressed images
-#Classic_CNN_model('SVD5')
-#Classic_CNN_model('SVD10')
-#Classic_CNN_model('SVD15')
-#Classic_CNN_model('SVD20')
-
-#call normal Tensor SVD compressed images
-#Classic_CNN_model('Tensor5')
-#Classic_CNN_model('Tensor10')
-#Classic_CNN_model('Tensor15')
-#Classic_CNN_model('Tensor20')
-
-
-#QPEGCOMPRESSION()
 
 def main():
 
@@ -606,22 +552,28 @@ def main():
             Dataset()
 
         elif choice == "2":
-            print("Do Something 4")
+            print("seperating and grayscaling images...")
+            binary_directory()
 
         elif choice == "3":
-            print("Do Something 3")
+            print("calculating classification accuracy baseline...")
+            Baseline_accuracy()
 
         elif choice == "4":
-            print("Do Something 2")
-
+            print("calculating mean intensity of the image...")
+            calc_mean()
+            
         elif choice == "5":
-            print("Do Something 1")
+            print("calculating mean variance of the image")
+            calc_variance()
 
         elif choice == "6":
-            print("Do Something 1")
+            os.system( 'cls' )
+            compression_menu()
 
         elif choice == "7":
-            print("Do Something 1")
+            os.system( 'cls' )
+            second_menu()
             
         else:
             os.system( 'cls' )
@@ -629,7 +581,80 @@ def main():
             main()
 
 def second_menu():
-     print("This is the second menu")
+    choice2 ='0'
+    while choice2 =='0':
+        print("Choose which dataset you would like to be learned by the classification algorithm")
+        print("Choose 1 for full sized images")
+        print("Choose 2 for SVD 5 eigenvectors")
+        print("Choose 3 for SVD 10 eigenvectors")
+        print("Choose 4 for SVD 15 eigenvectors")
+        print("Choose 5 for SVD 20 eigenvectors")
+        print("Choose 6 for tensor SVD 5 eigenvectors")
+        print("Choose 7 for tensor SVD 10 eigenvectors")
+        print("Choose 8 for tensor SVD 15 eigenvectors")
+        print("Choose 9 for tensor SVD 20 eigenvectors")
+        
+        choice2 = input ("Please make a choice: ")
 
+        if choice2 == "1":
+            print("classification is being performed on full sized images, this may take a while...")
+            Classic_CNN_model('Full_Image_Gray')
+
+        elif choice2 == "2":
+            print("classification is being performed on SVD 5 eigenvectors images, this may take a while...")
+            Classic_CNN_model('SVD5')
+
+        elif choice2 == "3":
+            print("classification is being performed on SVD 10 eigenvectors images, this may take a while...")
+            Classic_CNN_model('SVD10')
+
+        elif choice2 == "4":
+            print("classification is being performed on SVD 15 eigenvectors images, this may take a while...")
+            Classic_CNN_model('SVD15')
+
+        elif choice2 == "5":
+            print("classification is being performed on SVD 20 eigenvectors images, this may take a while...")
+            Classic_CNN_model('SVD20')
+
+        elif choice2 == "6":
+            print("classification is being performed on tensor SVD 5 eigenvectors images, this may take a while...")
+            Classic_CNN_model('Tensor5')
+
+        elif choice2 == "7":
+            print("classification is being performed on tensor SVD 10 eigenvectors images, this may take a while...")
+            Classic_CNN_model('Tensor10')
+
+        elif choice2 == "8":
+            print("classification is being performed on tensor SVD 15 eigenvectors images, this may take a while...")
+            Classic_CNN_model('Tensor15')
+
+        elif choice2 == "9":
+            print("classification is being performed on tensor SVD 20 eigenvectors images, this may take a while...")
+            Classic_CNN_model('Tensor20')
+
+        else:
+            os.system( 'cls' )
+            print("I don't understand your choice.")
+            main()
+
+def compression_menu():
+    choice3 ='0'
+    while choice3 =='0':
+        print("Choose which compression method you want to apply to the dataset")
+        print("Choose 1 for classic SVD compression, this will use the first 5, 10, 15 and 20 eigenvectors")
+        print("Choose 2 for tensor SVD compression, this will use the first 5, 10, 15 and 20 eigenvectors")
+        choice3 = input ("Please make a choice: ")
+        if choice3 == "1":
+            print("classic SVD compression is being performed, this may take a while...")
+            SVD_Truncation()
+
+        elif choice3 == "2":
+            print("tensor SVD compression is being performed, this may take a while...")
+            QPEGCOMPRESSION()
+
+        else:
+            os.system( 'cls' )
+            print("I don't understand your choice.")
+            main()
 
 main()
