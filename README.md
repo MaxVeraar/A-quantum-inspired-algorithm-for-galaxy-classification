@@ -20,4 +20,5 @@ From there you can operate the the program, but the selection menu is in order o
   - option 5 -> calculates the mean variance of the image dataset
   - option 6 -> opens a menu from which you can choose the desired compression to be run.
   - option 7 -> opens the menu to choose which uncompressed or compressed dataset you want to run through the classification algorithm.
-  
+
+For ease the compressed database that can be made with option 1 is already present in the repository so the large csv file gz2_hart.csv does not necessarily have to be downloaded.
